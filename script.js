@@ -4,35 +4,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const ctx = canvas.getContext('2d');
     let frames = 0;
     
-    // --- DIRECT ONLINE SOUNDS (No Download Needed!) ---
+    // --- DIRECT ONLINE SOUNDS & BGM ---
     let soundEnabled = true;
+    let bgmUnlocked = false; // Browser block hatane ke liye lock
 
     const sounds = {
-        // Retro chiptune background music for Menu
-        menuMusic: new Audio('https://ia802508.us.archive.org/5/items/loop-retro-game-music/Loop-Retro-Game-Music.mp3'),
-        // Nostalgic Mario Overworld Theme for Gameplay
+        // Classic Tetris Theme for Main Menu (Mast BGM)
+        menuMusic: new Audio('https://ia800504.us.archive.org/33/items/TetrisThemeMusic/Tetris.mp3'),
+        // Super Mario Theme for Gameplay (Energetic BGM)
         gameMusic: new Audio('https://ia600903.us.archive.org/25/items/tvtunes_28124/Super%20Mario%20Bros.%20-%20Overworld%20Theme.mp3'),
-        // Original Flappy Bird Wing Flap sound
+        // Sound Effects
         flap: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/wing.wav'),
-        // Retro Coin/Point sound
         coin: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/point.wav'),
-        // Swoosh sound for scoring/transitions
         score: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/swooshing.wav'),
-        // Original Flappy Bird Hit/Crash sound
         crash: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/hit.wav')
     };
 
-    // Background Music Loops Set Karein
+    // BGM ko loop par set karna taaki khatam na ho
     sounds.menuMusic.loop = true;
     sounds.gameMusic.loop = true;
 
-    // Perfect volume levels setup (Kaan me chubhega nahi)
-    sounds.menuMusic.volume = 0.25;
-    sounds.gameMusic.volume = 0.2;
-    sounds.flap.volume = 0.4;
-    sounds.coin.volume = 0.4;
-    sounds.score.volume = 0.4;
-    sounds.crash.volume = 0.5;
+    // Volume level (BGM thoda halka rakha hai taaki sound effects sunai dein)
+    sounds.menuMusic.volume = 0.3;
+    sounds.gameMusic.volume = 0.3;
+    sounds.flap.volume = 0.6;
+    sounds.coin.volume = 0.6;
+    sounds.score.volume = 0.6;
+    sounds.crash.volume = 0.7;
 
     // Play Sound Function
     function playSound(type) {
@@ -41,20 +39,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (type === 'menuMusic') {
             sounds.gameMusic.pause();
             sounds.menuMusic.currentTime = 0;
-            sounds.menuMusic.play().catch(e => console.log("Audio play blocked by browser:", e));
+            sounds.menuMusic.play().catch(e => console.log("BGM blocked:", e));
         } else if (type === 'gameMusic') {
             sounds.menuMusic.pause();
             sounds.gameMusic.currentTime = 0;
-            sounds.gameMusic.play().catch(e => console.log("Audio play blocked by browser:", e));
+            sounds.gameMusic.play().catch(e => console.log("BGM blocked:", e));
         } else if (type === 'stopMusic') {
             sounds.menuMusic.pause();
             sounds.gameMusic.pause();
         } else {
-            // Sound Effects quick replay setup
+            // Sound Effects
             sounds[type].currentTime = 0;
-            sounds[type].play().catch(e => console.log("Sound effect blocked:", e));
+            sounds[type].play().catch(e => console.log("SFX blocked:", e));
         }
     }
+
+    // --- BROWSER AUTOPLAY FIX ---
+    // User jaise hi screen par pehla click karega, Menu Music chalu ho jayega
+    document.body.addEventListener('click', () => {
+        if (!bgmUnlocked && soundEnabled && state.current === state.MENU) {
+            playSound('menuMusic');
+            bgmUnlocked = true; // Ek baar unlock ho gaya toh wapas trigger nahi hoga
+        }
+    });
 
     // State Management
     const state = { current: 0, MENU: 0, MODE_SELECT: 1, GAME: 2, GAMEOVER: 3 };
@@ -140,11 +147,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 let bx = bird.x - 10, by = bird.y - 10, bw = 20, bh = 20;
                 
-                // Collision Hitboxes
                 if (bx + bw > p.x && bx < p.x + p.w && by < p.top) gameOver();
                 if (bx + bw > p.x && bx < p.x + p.w && by + bh > canvas.height - 100 - p.bottom) gameOver();
 
-                // Collect Coin
                 if (!p.coinCollected) {
                     let cx = p.x + p.w/2, cy = p.top + difficulty.gap/2;
                     if (Math.hypot(bird.x - cx, bird.y - cy) < 40) {
@@ -154,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
 
-                // Pass Pipe & Score
                 if (p.x + p.w < bird.x && !p.passed) {
                     score++; p.passed = true;
                     playSound('score');
@@ -237,8 +241,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function gameOver() {
         state.current = state.GAMEOVER;
-        playSound('stopMusic'); // Stop all music
-        playSound('crash'); // Play hit sound
+        playSound('stopMusic'); // BGM band
+        playSound('crash'); // Hit sound
 
         if (score > bestScore) {
             bestScore = score;
@@ -269,19 +273,20 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('hud').classList.remove('hidden');
         
         state.current = state.GAME;
-        playSound('gameMusic'); // Gameplay music starts (Mario Overworld!)
+        playSound('gameMusic'); // Gameplay BGM Start!
         loop();
     }
 
     // Button Listeners
     document.getElementById('playBtn').addEventListener('click', () => {
-        playSound('score'); // Click feedback
+        playSound('score'); 
         document.getElementById('main-menu').classList.add('hidden');
         document.getElementById('mode-select').classList.remove('hidden');
         state.current = state.MODE_SELECT;
     });
 
-    document.getElementById('soundBtn').addEventListener('click', () => {
+    document.getElementById('soundBtn').addEventListener('click', (e) => {
+        e.stopPropagation(); // Yeh zaroori hai taaki background click isko overrule na kare
         soundEnabled = !soundEnabled;
         document.getElementById('soundBtn').innerText = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
         
@@ -295,13 +300,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
-
-    // Autoplay policy bypass on first click
-    window.addEventListener('click', () => {
-        if (state.current === state.MENU && soundEnabled && sounds.menuMusic.paused) {
-            playSound('menuMusic');
-        }
-    }, { once: true });
 
     document.getElementById('easy-card').addEventListener('click', () => startGame('easy'));
     document.getElementById('normal-card').addEventListener('click', () => startGame('normal'));
@@ -318,7 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('main-menu').classList.remove('hidden');
         state.current = state.MENU;
         updateMenuStats();
-        playSound('menuMusic'); // Restart menu music
+        playSound('menuMusic'); // Menu BGM wapas shuru
         
         ctx.clearRect(0,0,canvas.width,canvas.height);
         drawBackground();
