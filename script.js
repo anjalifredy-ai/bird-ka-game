@@ -1,58 +1,62 @@
-// Ensure everything runs only after the page is fully loaded
 document.addEventListener("DOMContentLoaded", () => {
     
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let frames = 0;
     
-    // Audio Context Setup
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    let audioCtx = null;
+    // --- DIRECT ONLINE SOUNDS (No Download Needed!) ---
     let soundEnabled = true;
 
-    function initAudio() {
-        if (!audioCtx) audioCtx = new AudioContext();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
+    const sounds = {
+        // Retro chiptune background music for Menu
+        menuMusic: new Audio('https://ia802508.us.archive.org/5/items/loop-retro-game-music/Loop-Retro-Game-Music.mp3'),
+        // Nostalgic Mario Overworld Theme for Gameplay
+        gameMusic: new Audio('https://ia600903.us.archive.org/25/items/tvtunes_28124/Super%20Mario%20Bros.%20-%20Overworld%20Theme.mp3'),
+        // Original Flappy Bird Wing Flap sound
+        flap: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/wing.wav'),
+        // Retro Coin/Point sound
+        coin: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/point.wav'),
+        // Swoosh sound for scoring/transitions
+        score: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/swooshing.wav'),
+        // Original Flappy Bird Hit/Crash sound
+        crash: new Audio('https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/audio/hit.wav')
+    };
 
+    // Background Music Loops Set Karein
+    sounds.menuMusic.loop = true;
+    sounds.gameMusic.loop = true;
+
+    // Perfect volume levels setup (Kaan me chubhega nahi)
+    sounds.menuMusic.volume = 0.25;
+    sounds.gameMusic.volume = 0.2;
+    sounds.flap.volume = 0.4;
+    sounds.coin.volume = 0.4;
+    sounds.score.volume = 0.4;
+    sounds.crash.volume = 0.5;
+
+    // Play Sound Function
     function playSound(type) {
-        if (!soundEnabled || !audioCtx || audioCtx.state !== 'running') return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
-        if (type === 'flap') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'coin') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-        } else if (type === 'score') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'crash') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        if (!soundEnabled) return;
+
+        if (type === 'menuMusic') {
+            sounds.gameMusic.pause();
+            sounds.menuMusic.currentTime = 0;
+            sounds.menuMusic.play().catch(e => console.log("Audio play blocked by browser:", e));
+        } else if (type === 'gameMusic') {
+            sounds.menuMusic.pause();
+            sounds.gameMusic.currentTime = 0;
+            sounds.gameMusic.play().catch(e => console.log("Audio play blocked by browser:", e));
+        } else if (type === 'stopMusic') {
+            sounds.menuMusic.pause();
+            sounds.gameMusic.pause();
+        } else {
+            // Sound Effects quick replay setup
+            sounds[type].currentTime = 0;
+            sounds[type].play().catch(e => console.log("Sound effect blocked:", e));
         }
     }
 
-    // Game States
+    // State Management
     const state = { current: 0, MENU: 0, MODE_SELECT: 1, GAME: 2, GAMEOVER: 3 };
 
     let bestScore = parseInt(localStorage.getItem('birdBestScore')) || 0;
@@ -87,7 +91,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.vy = 0;
             }
         },
-        flap() { this.vy = this.jump; playSound('flap'); },
+        flap() { 
+            this.vy = this.jump; 
+            playSound('flap'); 
+        },
         reset() { this.y = 350; this.vy = 0; }
     };
 
@@ -230,7 +237,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function gameOver() {
         state.current = state.GAMEOVER;
-        playSound('crash');
+        playSound('stopMusic'); // Stop all music
+        playSound('crash'); // Play hit sound
+
         if (score > bestScore) {
             bestScore = score;
             localStorage.setItem('birdBestScore', bestScore);
@@ -260,12 +269,13 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('hud').classList.remove('hidden');
         
         state.current = state.GAME;
+        playSound('gameMusic'); // Gameplay music starts (Mario Overworld!)
         loop();
     }
 
     // Button Listeners
     document.getElementById('playBtn').addEventListener('click', () => {
-        initAudio(); playSound('score');
+        playSound('score'); // Click feedback
         document.getElementById('main-menu').classList.add('hidden');
         document.getElementById('mode-select').classList.remove('hidden');
         state.current = state.MODE_SELECT;
@@ -274,7 +284,24 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('soundBtn').addEventListener('click', () => {
         soundEnabled = !soundEnabled;
         document.getElementById('soundBtn').innerText = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+        
+        if (!soundEnabled) {
+            playSound('stopMusic');
+        } else {
+            if (state.current === state.MENU || state.current === state.MODE_SELECT) {
+                playSound('menuMusic');
+            } else if (state.current === state.GAME) {
+                playSound('gameMusic');
+            }
+        }
     });
+
+    // Autoplay policy bypass on first click
+    window.addEventListener('click', () => {
+        if (state.current === state.MENU && soundEnabled && sounds.menuMusic.paused) {
+            playSound('menuMusic');
+        }
+    }, { once: true });
 
     document.getElementById('easy-card').addEventListener('click', () => startGame('easy'));
     document.getElementById('normal-card').addEventListener('click', () => startGame('normal'));
@@ -291,6 +318,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('main-menu').classList.remove('hidden');
         state.current = state.MENU;
         updateMenuStats();
+        playSound('menuMusic'); // Restart menu music
+        
         ctx.clearRect(0,0,canvas.width,canvas.height);
         drawBackground();
     });
@@ -298,4 +327,3 @@ document.addEventListener("DOMContentLoaded", () => {
     // Init
     updateMenuStats(); drawBackground(); 
 });
-                                   
